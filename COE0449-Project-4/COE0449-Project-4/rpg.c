@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
+#include <math.h>
 
 
 typedef struct{
@@ -61,11 +62,11 @@ void printOptions(int optionType){
             printf("4:\tGreat Axe (damage=1d12)\n\n");
     }
 }
-void initializePlayer(Player* player,char* playerName,int hp, int level,int armorChoice,int weaponChoice){
+void initializePlayer(Player* player,char* playerName,int level,int armorChoice,int weaponChoice){
     player->name = playerName;
-    player->hp = hp;
+    player->hp = 20 + (level - 1) * 5;
     player->level = level;
-    player->xp = 20 + (level - 1) * 5;
+    player->xp = (int)pow(2,level);
     
     switch (armorChoice){
         case 0:
@@ -139,7 +140,9 @@ void doLook(Player enemies[],Player *myPlayer){
     printPlayerStats(myPlayer);
 }
 void resolveDeath(Player *attacker,Player *defender){
-    //A player has died
+    int respawnDefender;
+    int respawnAttacker;
+    
     if(attacker->hp > defender->hp){
         char stealWeapon;
         char stealArmor;
@@ -151,16 +154,47 @@ void resolveDeath(Player *attacker,Player *defender){
         scanf(" %c",&stealWeapon);
         if(stealArmor == 'y'){ attacker->armor = defender->armor; }
         if(stealWeapon == 'y'){ attacker->weapon = defender->weapon; }
-        attacker->hp = 20;
-        attacker->level =
+        attacker->xp = attacker->xp + (defender->xp * 2000);
+        attacker->level = (int)log2(attacker->xp);
+        attacker->hp = 20 + (attacker->level - 1) * 5;
+        if(attacker->level > prevLevel){ printf("%s to level %d",attacker->name,attacker->level);}
+        printPlayerStats(attacker);
+        respawnDefender = 1;
+        respawnAttacker = 0;
     }
-    else if(attacker->hp < defender->hp){
+    else if(attacker->hp < defender->hp){ //We died
         printf("\n\n%s was killed by %s\n\n",attacker->name,defender->name);
+        printf("Respawning %s\n",attacker->name);
+        attacker->hp = 20 + (attacker->level - 1) * 5;
+        attacker->xp = (int)pow(2,attacker->level);
+        respawnDefender = 0;
+        respawnAttacker = 1;
     }
     else{
         printf("\n\n%s and %s have both died.\n\n",attacker->name,defender->name);
+        respawnDefender = 1;
+        respawnAttacker = 1;
     }
-   
+    
+    //Do respawning
+    if(respawnAttacker == 1){
+        printf("Respawning %s...",attacker->name);
+        
+        attacker->hp = 20 + (attacker->level - 1) * 5;
+        attacker->xp = (int)pow(2,attacker->level);
+    }
+    if(respawnDefender == 1){
+        printf("Respawning %s...",defender->name);
+        if(strcmp(defender->name,"Sauron") == 0){
+            initializePlayer(defender,"Sauron",20,4,4);
+        }
+        else if(strcmp(defender->name,"Gollum") == 0){
+            initializePlayer(defender,"Gollum",1,1,1);
+        }
+        else{
+           initializePlayer(defender,defender->name,(rand() % (attacker->level - 1 +1)+1),(rand() % (4 - 1 +1)+1),(rand() % (4 - 1 +1)+1));
+        }
+    }
     
     
 }
@@ -206,21 +240,21 @@ int main(int argc, const char * argv[]) {
     printOptions(1);
     printf("Choose %s's Weapon(0~4): ",myName);
     scanf("%d",&weaponChoice);
-    initializePlayer(&myPlayer,myName,20,1,armorChoice,weaponChoice);
+    initializePlayer(&myPlayer,myName,1,armorChoice,weaponChoice);
     printf("Player setting complete.\n");
     printPlayerStats(&myPlayer);
    
     //Initialize enemies
     Player sauronPlayer;
     Player gollumPlayer;
-    initializePlayer(&sauronPlayer,"Sauron",115,20,4,4);
-    initializePlayer(&gollumPlayer,"Gollum",10,1,1,1);
+    initializePlayer(&sauronPlayer,"Sauron",20,4,4);
+    initializePlayer(&gollumPlayer,"Gollum",1,1,1);
     
     for(i = 0;i < 10;i++){
         Player orcPlayer;
         char orcName[5];
         sprintf(orcName,"Orc %d",i);
-        initializePlayer(&orcPlayer,orcName,20,1,(rand() % (4 - 1 +1)+1),(rand() % (4 - 1 +1)+1));
+        initializePlayer(&orcPlayer,orcName,1,(rand() % (4 - 1 +1)+1),(rand() % (4 - 1 +1)+1));
     }
     enemyPlayers[0] = sauronPlayer;
     enemyPlayers[9] = gollumPlayer;
