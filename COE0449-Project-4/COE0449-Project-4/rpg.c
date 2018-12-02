@@ -24,16 +24,16 @@
 typedef struct{
     int diceRolls;
     int diceSize;
-    char *name;
+    const char *name;
 }Weapon;
 
 typedef struct{
     int class;
-    char *name;
+    const char *name;
 }Armor;
 
 typedef struct{
-    char* name;
+    const char* name;
     int hp;
     int xp;
     int level;
@@ -62,11 +62,11 @@ void printOptions(int optionType){
             printf("4:\tGreat Axe (damage=1d12)\n\n");
     }
 }
-void initializePlayer(Player* player,char* playerName,int level,int armorChoice,int weaponChoice){
+void initializePlayer(Player* player,const char *playerName,int level,int armorChoice,int weaponChoice){
     player->name = playerName;
     player->hp = 20 + (level - 1) * 5;
     player->level = level;
-    player->xp = (int)pow(2,level);
+    player->xp = (int)pow(2,level) * 1000;
     
     switch (armorChoice){
         case 0:
@@ -127,15 +127,16 @@ void initializePlayer(Player* player,char* playerName,int level,int armorChoice,
     
 
 void printPlayerStats(Player *player){
-    printf("\n[%s: hp=%d, armor=%s, weapon=%s]",player->name,player->hp,player->armor.name,player->weapon.name);
+    printf("[%s: hp=%d, armor=%s, weapon=%s, level=%d, xp=%d]\n",player->name,player->hp,player->armor.name,player->weapon.name,player->level,player->xp);
 }
-void doLook(Player enemies[],Player *myPlayer){
+void doLook(Player *enemies,Player *myPlayer){
     printf("All is peaceful in the land of Mordor.\nSauron and his minions are blissfully going about their business:\n");
-    for(int i = 0; i < 10; i++){
+    int i;
+    for(i = 0; i < 10; i++){
         printf("%d: ",i);
         printPlayerStats(&enemies[i]);
     }
-    printf("Also at the scene are some adventurers looking for trouble:");
+    printf("Also at the scene are some adventurers looking for trouble:\n");
     printf("0: ");
     printPlayerStats(myPlayer);
 }
@@ -148,23 +149,22 @@ void resolveDeath(Player *attacker,Player *defender){
         char stealArmor;
         int prevLevel = attacker->level;
         printf("\n\n%s was killed by %s\n\n",defender->name,attacker->name);
-        printf("Get %s's %s, exchanging %s's current armor %s (y/n)?",defender->name,defender->armor.name,attacker->name,attacker->armor.name);
+        printf("Get %s's %s, exchanging %s's current armor %s (y/n)? ",defender->name,defender->armor.name,attacker->name,attacker->armor.name);
         scanf(" %c",&stealArmor);
-        printf("Get %s's %s, exchanging %s's current weapon %s (y/n)?",defender->name,defender->weapon.name,attacker->name,attacker->weapon.name);
+        printf("Get %s's %s, exchanging %s's current weapon %s (y/n)? ",defender->name,defender->weapon.name,attacker->name,attacker->weapon.name);
         scanf(" %c",&stealWeapon);
         if(stealArmor == 'y'){ attacker->armor = defender->armor; }
         if(stealWeapon == 'y'){ attacker->weapon = defender->weapon; }
-        attacker->xp = attacker->xp + (defender->xp * 2000);
-        attacker->level = (int)log2(attacker->xp);
+        attacker->xp = attacker->xp + (defender->level * 2000);
+        attacker->level = (int)log2(attacker->xp/1000);
         attacker->hp = 20 + (attacker->level - 1) * 5;
-        if(attacker->level > prevLevel){ printf("%s to level %d",attacker->name,attacker->level);}
+        if(attacker->level > prevLevel){ printf("%s levels up to level %d\n",attacker->name,attacker->level);}
         printPlayerStats(attacker);
         respawnDefender = 1;
         respawnAttacker = 0;
     }
     else if(attacker->hp < defender->hp){ //We died
         printf("\n\n%s was killed by %s\n\n",attacker->name,defender->name);
-        printf("Respawning %s\n",attacker->name);
         attacker->hp = 20 + (attacker->level - 1) * 5;
         attacker->xp = (int)pow(2,attacker->level);
         respawnDefender = 0;
@@ -178,13 +178,14 @@ void resolveDeath(Player *attacker,Player *defender){
     
     //Do respawning
     if(respawnAttacker == 1){
-        printf("Respawning %s...",attacker->name);
+        printf("Respawning %s...\n",attacker->name);
         
         attacker->hp = 20 + (attacker->level - 1) * 5;
         attacker->xp = (int)pow(2,attacker->level);
+        printPlayerStats(attacker);
     }
     if(respawnDefender == 1){
-        printf("Respawning %s...",defender->name);
+        printf("Respawning %s...\n",defender->name);
         if(strcmp(defender->name,"Sauron") == 0){
             initializePlayer(defender,"Sauron",20,4,4);
         }
@@ -194,6 +195,7 @@ void resolveDeath(Player *attacker,Player *defender){
         else{
            initializePlayer(defender,defender->name,(rand() % (attacker->level - 1 +1)+1),(rand() % (4 - 1 +1)+1),(rand() % (4 - 1 +1)+1));
         }
+        printPlayerStats(defender);
     }
     
     
@@ -218,8 +220,11 @@ void doAttack(Player *attacker,Player *defender){
             printf("\n%s misses %s (attack roll %d)",attacker->name,defender->name,attackRoll);
         }
     }
+    resolveDeath(attacker,defender);
     
 }
+
+char *npcNames[10] = {"Sauron","Orc 1","Orc 2","Orc 3","Orc 4","Orc 5","Orc 6","Orc 7","Orc 8","Gollum"};
 
 int main(int argc, const char * argv[]) {
     Player myPlayer;
@@ -232,7 +237,7 @@ int main(int argc, const char * argv[]) {
     int armorChoice;
     int weaponChoice;
     char myName[25];
-    printf("What is your name?");
+    printf("What is your name? ");
     scanf("%s",myName);
     printOptions(0);
     printf("Choose %s's Armor(0~4): ",myName);
@@ -245,19 +250,23 @@ int main(int argc, const char * argv[]) {
     printPlayerStats(&myPlayer);
    
     //Initialize enemies
+   
     Player sauronPlayer;
     Player gollumPlayer;
-    initializePlayer(&sauronPlayer,"Sauron",20,4,4);
-    initializePlayer(&gollumPlayer,"Gollum",1,1,1);
+    initializePlayer(&sauronPlayer,npcNames[0],20,4,4);
+    initializePlayer(&gollumPlayer,npcNames[9],1,1,1);
+    gollumPlayer.hp = 10;
     
-    for(i = 0;i < 10;i++){
-        Player orcPlayer;
-        char orcName[5];
-        sprintf(orcName,"Orc %d",i);
-        initializePlayer(&orcPlayer,orcName,1,(rand() % (4 - 1 +1)+1),(rand() % (4 - 1 +1)+1));
-    }
     enemyPlayers[0] = sauronPlayer;
     enemyPlayers[9] = gollumPlayer;
+
+    for(i = 1;i < 9;i++){
+        Player orcPlayer;
+        initializePlayer(&orcPlayer,npcNames[i],1,(rand() % (4 - 1 +1)+1),(rand() % (4 - 1 +1)+1));
+        enemyPlayers[i] = orcPlayer;
+        
+    }
+    
     doLook(enemyPlayers,&myPlayer);
 
     
@@ -266,20 +275,20 @@ int main(int argc, const char * argv[]) {
     char command[15];
     
     while(1){
-        printf("command >> ");
-        scanf("%s",command);
-        enemyIndex = 3;
+        printf("\ncommand >> ");
+        scanf(" %s",command);
+        enemyIndex = 9;
         
-        if(strcasecmp("look",command)){
+        if(strcmp("look",command)==0){
             doLook(enemyPlayers,&myPlayer);
         }
-        if(strcasecmp("stats",command)){
+        if(strcmp("stats",command)==0){
             printPlayerStats(&myPlayer);
         }
-        if(strcasecmp("attack",command)){
+        if(strcmp("attack",command)==0){
             doAttack(&myPlayer,&enemyPlayers[enemyIndex]);
         }
-        if(strcasecmp("quit",command)){
+        if(strcmp("quit",command)==0){
             return 0;
             break;
         }
