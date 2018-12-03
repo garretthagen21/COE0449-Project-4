@@ -181,7 +181,7 @@ void resolveDeath(Player *attacker,Player *defender){
         printf("Respawning %s...\n",attacker->name);
         
         attacker->hp = 20 + (attacker->level - 1) * 5;
-        attacker->xp = (int)pow(2,attacker->level);
+        attacker->xp = (int)pow(2,attacker->level) * 1000;
         printPlayerStats(attacker);
     }
     if(respawnDefender == 1){
@@ -191,6 +191,7 @@ void resolveDeath(Player *attacker,Player *defender){
         }
         else if(strcmp(defender->name,"Gollum") == 0){
             initializePlayer(defender,"Gollum",1,1,1);
+            defender->hp = 15;
         }
         else{
            initializePlayer(defender,defender->name,(rand() % (attacker->level - 1 +1)+1),(rand() % (4 - 1 +1)+1),(rand() % (4 - 1 +1)+1));
@@ -271,24 +272,30 @@ int main(int argc, const char * argv[]) {
 
     
     //Begin the game
-    int enemyIndex;
-    char command[15];
+  
+    char input[20];
+    char *commands[2];
+   //char command1[10];
+   // char command2[2];
     
     while(1){
         printf("\ncommand >> ");
-        scanf(" %s",command);
-        enemyIndex = 9;
-        
-        if(strcmp("look",command)==0){
+        scanf(" %[^\n]s",input);
+
+        commands[0] = strtok(input," ");
+        commands[1] = strtok(NULL," ");
+
+        if(strcmp("look",commands[0])==0){
             doLook(enemyPlayers,&myPlayer);
         }
-        if(strcmp("stats",command)==0){
+        if(strcmp("stats",commands[0])==0){
             printPlayerStats(&myPlayer);
         }
-        if(strcmp("attack",command)==0){
+        if(strcmp("fight",commands[0])==0){
+            int enemyIndex = atoi(commands[1]);
             doAttack(&myPlayer,&enemyPlayers[enemyIndex]);
         }
-        if(strcmp("quit",command)==0){
+        if(strcmp("quit",commands[0])==0){
             return 0;
             break;
         }
