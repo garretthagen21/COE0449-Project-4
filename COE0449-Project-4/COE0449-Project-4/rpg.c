@@ -273,14 +273,37 @@ void doQuit(){
     exit(0);
     
 }
-
+void handleSignal(int signal){
+    switch(signal){
+        case SIGINT:
+        case SIGTERM:
+            doQuit();
+            break;
+        /*case SIGRTMIN:
+            earthQuake();
+            break;*/
+        default:
+            printf("No handler for SIG %d. Exiting\n",signal);
+            doQuit();
+            
+            
+        
+    }
+}
 
 int main(int argc, const char * argv[]) {
     FILE *openFile;
-    
-    srand((unsigned int)time(NULL));
+    srand((unsigned int)time(NULL)); //TODO: implement dev_dice
     int i;
     char continueGame = 'n';
+   
+    
+ 
+        signal(SIGINT, handleSignal);
+        signal(SIGTERM,handleSignal);
+        //signal(SIGRTMIN,handleSignal)
+    
+   
     
     if((openFile = fopen("rpg.save","rb")) != NULL){
         printf("Found save file. Continue where you left off (y/n)? ");
