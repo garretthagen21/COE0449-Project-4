@@ -24,17 +24,7 @@
 /*#define SIGINT 3
 #define SIGTERM 15
 #define SIGRTMIN
-
-typedef struct{
-    int diceRolls;
-    int diceSize;
-    const char *name;
-}Weapon;
-
-typedef struct{
-    int class;
-    const char *name;
-}Armor;*/
+*/
 
 typedef struct{
     char playerName[20];
@@ -49,8 +39,15 @@ typedef struct{
     
 }Player;
 
+//Globals
 char *npcNames[10] = {"Sauron","Orc 1","Orc 2","Orc 3","Orc 4","Orc 5","Orc 6","Orc 7","Orc 8","Gollum"};
-Player allPlayers[11]; //For earthquake, saving, and looking
+char myName[20];
+Player myPlayer;
+Player enemyPlayers[10];
+
+void printPlayerStats(Player *player){
+    printf("[%s: hp=%d, armor=%s, weapon=%s, level=%d, xp=%d]\n",player->playerName,player->hp,player->armorName,player->weaponName,player->level,player->xp);
+}
 
 void printOptions(int optionType){
     switch(optionType){
@@ -71,8 +68,10 @@ void printOptions(int optionType){
             printf("4:\tGreat Axe (damage=1d12)\n\n");
     }
 }
+
+
 void initializePlayer(Player* player,int level,int armorChoice,int weaponChoice){
-  
+    
     player->hp = 20 + (level - 1) * 5;
     player->level = level;
     player->xp = (int)pow(2,level) * 1000;
@@ -100,7 +99,7 @@ void initializePlayer(Player* player,int level,int armorChoice,int weaponChoice)
             break;
         default:
             printf("Invalid choice! Try again.\n");
-
+            
     }
     switch (weaponChoice){
         case 0:
@@ -130,29 +129,67 @@ void initializePlayer(Player* player,int level,int armorChoice,int weaponChoice)
             break;
         default:
             printf("Invalid choice! Try again.\n");
-      
+            
     }
 }
-    
 
-void printPlayerStats(Player *player){
-    printf("[%s: hp=%d, armor=%s, weapon=%s, level=%d, xp=%d]\n",player->playerName,player->hp,player->armorName,player->weaponName,player->level,player->xp);
+void doRespawn(Player *player){
+    printf("Respawning %s...\n",player->playerName);
+    
+    if(strcmp(player->playerName,myName) == 0){
+        player->hp = 20 + (player->level - 1) * 5;
+        player->xp = (int)pow(2,player->level) * 1000;
+    }
+    else if(strcmp(player->playerName,"Sauron") == 0){
+        initializePlayer(player,20,4,4);
+    }
+    else if(strcmp(player->playerName,"Gollum") == 0){
+        initializePlayer(player,1,1,1);
+        player->hp = 15;
+    }
+    else{ //Orc
+        initializePlayer(player,(rand() % (player->level - 1 +1)+1),(rand() % (4 - 1 +1)+1),(rand() % (4 - 1 +1)+1));
+    }
+    printPlayerStats(player);
 }
+
+void earthQuake(){
+    
+    printf("EARTH QUAKE!!!\n\n");
+    Player * currentPlayer;
+    for(int i = 0;i<11;i++){
+        int damage = -20;
+        if(i < 10){ currentPlayer = &enemyPlayers[i]; }
+        else{ currentPlayer = &myPlayer; }
+        
+        printf("%s suffers %d",currentPlayer->playerName,damage);
+        currentPlayer->hp = currentPlayer->hp - 20;
+        if(currentPlayer->hp > 0){
+            printf(" but survives.\n");
+        }
+        else{
+            printf(" and dies.\n");
+            doRespawn(currentPlayer);
+        }
+    }
+}
+
+
+
 void doLook(){
     printf("All is peaceful in the land of Mordor.\nSauron and his minions are blissfully going about their business:\n");
     int i;
     for(i = 0; i < 10; i++){
         printf("%d: ",i);
-        printPlayerStats(&allPlayers[i]);
+        printPlayerStats(&enemyPlayers[i]);
     }
     printf("Also at the scene are some adventurers looking for trouble:\n");
     printf("0: ");
-    printPlayerStats(&allPlayers[10]);
+    printPlayerStats(&myPlayer);
 }
+
 void resolveDeath(Player *attacker,Player *defender){
-    int respawnDefender;
-    int respawnAttacker;
-    
+   
     if(attacker->hp > defender->hp){
         char stealWeapon;
         char stealArmor;
@@ -177,51 +214,25 @@ void resolveDeath(Player *attacker,Player *defender){
         attacker->hp = 20 + (attacker->level - 1) * 5;
         if(attacker->level > prevLevel){ printf("%s levels up to level %d\n",attacker->playerName,attacker->level);}
         printPlayerStats(attacker);
-        respawnDefender = 1;
-        respawnAttacker = 0;
+        doRespawn(defender);
     }
     else if(attacker->hp < defender->hp){ //We died
         printf("\n\n%s was killed by %s\n\n",attacker->playerName,defender->playerName);
         attacker->hp = 20 + (attacker->level - 1) * 5;
         attacker->xp = (int)pow(2,attacker->level);
-        respawnDefender = 0;
-        respawnAttacker = 1;
+        doRespawn(attacker);
     }
     else{
         printf("\n\n%s and %s have both died.\n\n",attacker->playerName,defender->playerName);
-        respawnDefender = 1;
-        respawnAttacker = 1;
-    }
-    
-    //Do respawning
-    if(respawnAttacker == 1){
-        printf("Respawning %s...\n",attacker->playerName);
+        doRespawn(attacker);
+        doRespawn(defender);
         
-        attacker->hp = 20 + (attacker->level - 1) * 5;
-        attacker->xp = (int)pow(2,attacker->level) * 1000;
-        printPlayerStats(attacker);
     }
-    if(respawnDefender == 1){
-        printf("Respawning %s...\n",defender->playerName);
-        if(strcmp(defender->playerName,"Sauron") == 0){
-            initializePlayer(defender,20,4,4);
-        }
-        else if(strcmp(defender->playerName,"Gollum") == 0){
-            initializePlayer(defender,1,1,1);
-            defender->hp = 15;
-        }
-        else{
-            initializePlayer(defender,(rand() % (attacker->level - 1 +1)+1),(rand() % (4 - 1 +1)+1),(rand() % (4 - 1 +1)+1));
-        }
-        printPlayerStats(defender);
-    }
-    
     
 }
 
 void doAttack(Player *attacker,Player *defender){
    
-    while(attacker->hp > 0 && defender->hp > 0){
         int attackDamage = 0;
         int attackRoll = rand() % (20 - 1 +1)+1;
         
@@ -238,11 +249,12 @@ void doAttack(Player *attacker,Player *defender){
             printf("\n%s misses %s (attack roll %d)",attacker->playerName,defender->playerName,attackRoll);
         }
     }
-    resolveDeath(attacker,defender);
+
     
-}
+
 void doQuit(){
     FILE *saveFile;
+    Player *currentPlayer;
     if((saveFile = fopen("rpg.save","wb")) == NULL){
         printf("There was an error saving the file.\n");
         exit(0);
@@ -250,8 +262,11 @@ void doQuit(){
     //Save players
     int i;
     for(i = 0; i < 11;i++){
-        fwrite (&allPlayers[i], sizeof(Player), 1, saveFile);
+        if(i < 10){ currentPlayer = &enemyPlayers[i]; }
+        else{ currentPlayer = &myPlayer; }
+        fwrite(currentPlayer, sizeof(Player), 1, saveFile);
     }
+ 
     printf("File saved successfully!\n");
 
     fclose(saveFile);
@@ -262,26 +277,30 @@ void doQuit(){
 
 int main(int argc, const char * argv[]) {
     FILE *openFile;
-  
-    Player myPlayer;
-    Player enemyPlayers[10];
+    
     srand((unsigned int)time(NULL));
     int i;
     char continueGame = 'n';
     
     if((openFile = fopen("rpg.save","rb")) != NULL){
-        printf("Found save file. Continue where you left off (y/n)? :");
+        printf("Found save file. Continue where you left off (y/n)? ");
         scanf(" %c",&continueGame);
     }
     
     if(continueGame == 'y'){
-        for(i = 0; i < 11;i++){
+        /*for(i = 0; i < 11;i++){
             fread(&allPlayers[i], sizeof(Player), 1, openFile);
             if(i < 10){ enemyPlayers[i] = allPlayers[i]; }
             else{ myPlayer = allPlayers[i]; }
+        }*/
+        Player *currentPlayer;
+        for(i = 0; i < 11;i++){
+            if(i < 10){ currentPlayer = &enemyPlayers[i]; }
+            else{ currentPlayer = &myPlayer; }
+            fread(currentPlayer, sizeof(Player), 1, openFile);
         }
+       
         //fread(&myPlayer, sizeof(Player), 1, openFile);
-        
         printf("File loaded successfully!\n");
         fclose(openFile);
     }
@@ -289,20 +308,19 @@ int main(int argc, const char * argv[]) {
         //Initialize my player
         int armorChoice;
         int weaponChoice;
-        char myName[25];
+        
         printf("What is your name? ");
-        scanf("%s",myPlayer.playerName);
+        scanf("%s",myName);
         printOptions(0);
         printf("Choose %s's Armor(0~4): ",myName);
         scanf("%d",&armorChoice);
         printOptions(1);
         printf("Choose %s's Weapon(0~4): ",myName);
         scanf("%d",&weaponChoice);
+        strcpy(myPlayer.playerName,myName);
         initializePlayer(&myPlayer,1,armorChoice,weaponChoice);
-        //strcpy(myPlayer->playerName,,);
         printf("Player setting complete.\n");
         printPlayerStats(&myPlayer);
-        allPlayers[10] = myPlayer;
         
         //Initialize enemies
         Player sauronPlayer = {.playerName = "Sauron"};
@@ -311,18 +329,16 @@ int main(int argc, const char * argv[]) {
         initializePlayer(&gollumPlayer,1,1,1);
         gollumPlayer.hp = 10;
         
-        allPlayers[0] = enemyPlayers[0] = sauronPlayer;
-        allPlayers[9] = enemyPlayers[9] = gollumPlayer;
+        enemyPlayers[0] = sauronPlayer;
+        enemyPlayers[9] = gollumPlayer;
         
         for(i = 1;i < 9;i++){
             Player orcPlayer;
             strcpy(orcPlayer.playerName,npcNames[i]);
             initializePlayer(&orcPlayer,1,(rand() % (4 - 1 +1)+1),(rand() % (4 - 1 +1)+1));
             enemyPlayers[i] = orcPlayer;
-            allPlayers[i] = orcPlayer;
         }
     }
-    
     
     doLook();
     
@@ -345,10 +361,19 @@ int main(int argc, const char * argv[]) {
         }
         if(strcmp("fight",commands[0])==0){
             int enemyIndex = atoi(commands[1]);
-            doAttack(&myPlayer,&enemyPlayers[enemyIndex]);
+            while(myPlayer.hp > 0 && enemyPlayers[enemyIndex].hp > 0){
+                doAttack(&myPlayer,&enemyPlayers[enemyIndex]);
+                doAttack(&enemyPlayers[enemyIndex],&myPlayer);
+            }
+            resolveDeath(&myPlayer,&enemyPlayers[enemyIndex]);
         }
         if(strcmp("quit",commands[0])==0){
             doQuit();
+            return 0;
+            
+        }
+        if(strcmp("earthquake",commands[0])==0){
+            earthQuake();
             return 0;
             
         }
