@@ -228,57 +228,69 @@ void doAttack(Player *attacker,Player *defender){
 char *npcNames[10] = {"Sauron","Orc 1","Orc 2","Orc 3","Orc 4","Orc 5","Orc 6","Orc 7","Orc 8","Gollum"};
 
 int main(int argc, const char * argv[]) {
+    FILE *openFile;
+    FILE *saveFile;
     Player myPlayer;
     Player enemyPlayers[10];
     srand((unsigned int)time(NULL));
     int i;
+    char continueGame = 'n';
     
-    
-    //Initialize my player
-    int armorChoice;
-    int weaponChoice;
-    char myName[25];
-    printf("What is your name? ");
-    scanf("%s",myName);
-    printOptions(0);
-    printf("Choose %s's Armor(0~4): ",myName);
-    scanf("%d",&armorChoice);
-    printOptions(1);
-    printf("Choose %s's Weapon(0~4): ",myName);
-    scanf("%d",&weaponChoice);
-    initializePlayer(&myPlayer,myName,1,armorChoice,weaponChoice);
-    printf("Player setting complete.\n");
-    printPlayerStats(&myPlayer);
-   
-    //Initialize enemies
-   
-    Player sauronPlayer;
-    Player gollumPlayer;
-    initializePlayer(&sauronPlayer,npcNames[0],20,4,4);
-    initializePlayer(&gollumPlayer,npcNames[9],1,1,1);
-    gollumPlayer.hp = 10;
-    
-    enemyPlayers[0] = sauronPlayer;
-    enemyPlayers[9] = gollumPlayer;
-
-    for(i = 1;i < 9;i++){
-        Player orcPlayer;
-        initializePlayer(&orcPlayer,npcNames[i],1,(rand() % (4 - 1 +1)+1),(rand() % (4 - 1 +1)+1));
-        enemyPlayers[i] = orcPlayer;
-        
+    if((openFile = fopen("rpg.save","rb")) != NULL){
+        printf("Found save file. Continue where you left off (y/n)? :");
+        scanf(" %c",&continueGame);
     }
     
+    if(continueGame == 'y'){
+        fread(&myPlayer, sizeof(Player), 1, openFile);
+        for(i = 0; i < 10;i++){
+            fread(&enemyPlayers[i], sizeof(Player), 1, openFile);
+        }
+        printf("File saved successfully!\n");
+        fclose(openFile);
+    }
+    else{
+        //Initialize my player
+        int armorChoice;
+        int weaponChoice;
+        char myName[25];
+        printf("What is your name? ");
+        scanf("%s",myName);
+        printOptions(0);
+        printf("Choose %s's Armor(0~4): ",myName);
+        scanf("%d",&armorChoice);
+        printOptions(1);
+        printf("Choose %s's Weapon(0~4): ",myName);
+        scanf("%d",&weaponChoice);
+        initializePlayer(&myPlayer,myName,1,armorChoice,weaponChoice);
+        printf("Player setting complete.\n");
+        printPlayerStats(&myPlayer);
+        
+        //Initialize enemies
+        Player sauronPlayer;
+        Player gollumPlayer;
+        initializePlayer(&sauronPlayer,npcNames[0],20,4,4);
+        initializePlayer(&gollumPlayer,npcNames[9],1,1,1);
+        gollumPlayer.hp = 10;
+        
+        enemyPlayers[0] = sauronPlayer;
+        enemyPlayers[9] = gollumPlayer;
+        
+        for(i = 1;i < 9;i++){
+            Player orcPlayer;
+            initializePlayer(&orcPlayer,npcNames[i],1,(rand() % (4 - 1 +1)+1),(rand() % (4 - 1 +1)+1));
+            enemyPlayers[i] = orcPlayer;
+        }
+    }
+    
+    
     doLook(enemyPlayers,&myPlayer);
-
     
     //Begin the game
-  
-    char input[20];
-    char *commands[2];
-   //char command1[10];
-   // char command2[2];
-    
     while(1){
+        char input[20];
+        char *commands[2];
+        
         printf("\ncommand >> ");
         scanf(" %[^\n]s",input);
 
@@ -296,12 +308,24 @@ int main(int argc, const char * argv[]) {
             doAttack(&myPlayer,&enemyPlayers[enemyIndex]);
         }
         if(strcmp("quit",commands[0])==0){
+            if((saveFile = fopen("rpg.save","wb")) == NULL){
+                printf("There was an error saving the file.\n");
+                return 0;
+            }
+            //Save players
+            fwrite(&myPlayer, sizeof(Player), 1, saveFile);
+            for(i = 0; i < 10;i++){
+                fwrite (&enemyPlayers[i], sizeof(Player), 1, saveFile);
+            }
+            printf("File saved successfully!\n");
+            
+            fclose(saveFile);
             return 0;
-            break;
+            
         }
         
     }
-    return 0;
+   
 }
 
 
