@@ -19,9 +19,13 @@
 #include <time.h>
 #include <string.h>
 #include <math.h>
+#include <signal.h>
 
+/*#define SIGINT 3
+#define SIGTERM 15
+#define SIGRTMIN
 
-/*typedef struct{
+typedef struct{
     int diceRolls;
     int diceSize;
     const char *name;
@@ -45,7 +49,8 @@ typedef struct{
     
 }Player;
 
-
+char *npcNames[10] = {"Sauron","Orc 1","Orc 2","Orc 3","Orc 4","Orc 5","Orc 6","Orc 7","Orc 8","Gollum"};
+Player allPlayers[11]; //For earthquake, saving, and looking
 
 void printOptions(int optionType){
     switch(optionType){
@@ -133,16 +138,16 @@ void initializePlayer(Player* player,int level,int armorChoice,int weaponChoice)
 void printPlayerStats(Player *player){
     printf("[%s: hp=%d, armor=%s, weapon=%s, level=%d, xp=%d]\n",player->playerName,player->hp,player->armorName,player->weaponName,player->level,player->xp);
 }
-void doLook(Player *enemies,Player *myPlayer){
+void doLook(){
     printf("All is peaceful in the land of Mordor.\nSauron and his minions are blissfully going about their business:\n");
     int i;
     for(i = 0; i < 10; i++){
         printf("%d: ",i);
-        printPlayerStats(&enemies[i]);
+        printPlayerStats(&allPlayers[i]);
     }
     printf("Also at the scene are some adventurers looking for trouble:\n");
     printf("0: ");
-    printPlayerStats(myPlayer);
+    printPlayerStats(&allPlayers[10]);
 }
 void resolveDeath(Player *attacker,Player *defender){
     int respawnDefender;
@@ -236,12 +241,28 @@ void doAttack(Player *attacker,Player *defender){
     resolveDeath(attacker,defender);
     
 }
+void doQuit(){
+    FILE *saveFile;
+    if((saveFile = fopen("rpg.save","wb")) == NULL){
+        printf("There was an error saving the file.\n");
+        exit(0);
+    }
+    //Save players
+    int i;
+    for(i = 0; i < 11;i++){
+        fwrite (&allPlayers[i], sizeof(Player), 1, saveFile);
+    }
+    printf("File saved successfully!\n");
 
-char *npcNames[10] = {"Sauron","Orc 1","Orc 2","Orc 3","Orc 4","Orc 5","Orc 6","Orc 7","Orc 8","Gollum"};
+    fclose(saveFile);
+    exit(0);
+    
+}
+
 
 int main(int argc, const char * argv[]) {
     FILE *openFile;
-    FILE *saveFile;
+  
     Player myPlayer;
     Player enemyPlayers[10];
     srand((unsigned int)time(NULL));
@@ -254,11 +275,14 @@ int main(int argc, const char * argv[]) {
     }
     
     if(continueGame == 'y'){
-        fread(&myPlayer, sizeof(Player), 1, openFile);
-        for(i = 0; i < 10;i++){
-            fread(&enemyPlayers[i], sizeof(Player), 1, openFile);
+        for(i = 0; i < 11;i++){
+            fread(&allPlayers[i], sizeof(Player), 1, openFile);
+            if(i < 10){ enemyPlayers[i] = allPlayers[i]; }
+            else{ myPlayer = allPlayers[i]; }
         }
-        printf("File saved successfully!\n");
+        //fread(&myPlayer, sizeof(Player), 1, openFile);
+        
+        printf("File loaded successfully!\n");
         fclose(openFile);
     }
     else{
@@ -278,6 +302,7 @@ int main(int argc, const char * argv[]) {
         //strcpy(myPlayer->playerName,,);
         printf("Player setting complete.\n");
         printPlayerStats(&myPlayer);
+        allPlayers[10] = myPlayer;
         
         //Initialize enemies
         Player sauronPlayer = {.playerName = "Sauron"};
@@ -286,19 +311,20 @@ int main(int argc, const char * argv[]) {
         initializePlayer(&gollumPlayer,1,1,1);
         gollumPlayer.hp = 10;
         
-        enemyPlayers[0] = sauronPlayer;
-        enemyPlayers[9] = gollumPlayer;
+        allPlayers[0] = enemyPlayers[0] = sauronPlayer;
+        allPlayers[9] = enemyPlayers[9] = gollumPlayer;
         
         for(i = 1;i < 9;i++){
             Player orcPlayer;
             strcpy(orcPlayer.playerName,npcNames[i]);
             initializePlayer(&orcPlayer,1,(rand() % (4 - 1 +1)+1),(rand() % (4 - 1 +1)+1));
             enemyPlayers[i] = orcPlayer;
+            allPlayers[i] = orcPlayer;
         }
     }
     
     
-    doLook(enemyPlayers,&myPlayer);
+    doLook();
     
     //Begin the game
     while(1){
@@ -312,7 +338,7 @@ int main(int argc, const char * argv[]) {
         commands[1] = strtok(NULL," ");
 
         if(strcmp("look",commands[0])==0){
-            doLook(enemyPlayers,&myPlayer);
+            doLook();
         }
         if(strcmp("stats",commands[0])==0){
             printPlayerStats(&myPlayer);
@@ -322,18 +348,7 @@ int main(int argc, const char * argv[]) {
             doAttack(&myPlayer,&enemyPlayers[enemyIndex]);
         }
         if(strcmp("quit",commands[0])==0){
-            if((saveFile = fopen("rpg.save","wb")) == NULL){
-                printf("There was an error saving the file.\n");
-                return 0;
-            }
-            //Save players
-            fwrite(&myPlayer, sizeof(Player), 1, saveFile);
-            for(i = 0; i < 10;i++){
-                fwrite (&enemyPlayers[i], sizeof(Player), 1, saveFile);
-            }
-            printf("File saved successfully!\n");
-            
-            fclose(saveFile);
+            doQuit();
             return 0;
             
         }
